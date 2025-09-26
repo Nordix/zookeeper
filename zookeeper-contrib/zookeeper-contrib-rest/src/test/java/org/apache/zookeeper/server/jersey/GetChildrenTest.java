@@ -23,8 +23,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import javax.ws.rs.core.MediaType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.CreateMode;
@@ -37,7 +35,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import com.sun.jersey.api.client.ClientResponse;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.MediaType;
 
 
 /**
@@ -50,7 +50,7 @@ public class GetChildrenTest extends Base {
 
     private String accept;
     private String path;
-    private ClientResponse.Status expectedStatus;
+    private Response.Status expectedStatus;
     private String expectedPath;
     private List<String> expectedChildren;
 
@@ -65,31 +65,31 @@ public class GetChildrenTest extends Base {
 
         return Arrays.asList(new Object[][] {
           {MediaType.APPLICATION_JSON, baseZnode + "abddkdkd",
-              ClientResponse.Status.NOT_FOUND, null, null },
+              Response.Status.NOT_FOUND, null, null },
           {MediaType.APPLICATION_XML, baseZnode + "abddkdkd",
-              ClientResponse.Status.NOT_FOUND, null, null },
-          {MediaType.APPLICATION_JSON, baseZnode, ClientResponse.Status.OK,
+              Response.Status.NOT_FOUND, null, null },
+          {MediaType.APPLICATION_JSON, baseZnode, Response.Status.OK,
               baseZnode, Arrays.asList(new String[] {}) },
-          {MediaType.APPLICATION_XML, baseZnode, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_XML, baseZnode, Response.Status.OK,
               baseZnode, Arrays.asList(new String[] {}) },
-          {MediaType.APPLICATION_JSON, baseZnode, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_JSON, baseZnode, Response.Status.OK,
               baseZnode, Arrays.asList(new String[] {"c1"}) },
-          {MediaType.APPLICATION_XML, baseZnode4, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_XML, baseZnode4, Response.Status.OK,
               baseZnode4, Arrays.asList(new String[] {"c1"}) },
-          {MediaType.APPLICATION_JSON, baseZnode2, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_JSON, baseZnode2, Response.Status.OK,
               baseZnode2, Arrays.asList(new String[] {"c1", "c2"}) },
-          {MediaType.APPLICATION_XML, baseZnode5, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_XML, baseZnode5, Response.Status.OK,
               baseZnode5, Arrays.asList(new String[] {"c1", "c2"}) },
-          {MediaType.APPLICATION_JSON, baseZnode3, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_JSON, baseZnode3, Response.Status.OK,
               baseZnode3, Arrays.asList(new String[] {"c1", "c2", "c3", "c4"}) },
-          {MediaType.APPLICATION_XML, baseZnode6, ClientResponse.Status.OK,
+          {MediaType.APPLICATION_XML, baseZnode6, Response.Status.OK,
               baseZnode6, Arrays.asList(new String[] {"c1", "c2", "c3", "c4"}) }
 
           });
     }
 
-    public GetChildrenTest(String accept, String path, ClientResponse.Status status,
-            String expectedPath, List<String> expectedChildren)
+    public GetChildrenTest(String accept, String path, Response.Status status,
+                           String expectedPath, List<String> expectedChildren)
     {
         this.accept = accept;
         this.path = path;
@@ -107,16 +107,19 @@ public class GetChildrenTest extends Base {
             }
         }
 
-        ClientResponse cr = znodesr.path(path).queryParam("view", "children")
-            .accept(accept).get(ClientResponse.class);
-        Assert.assertEquals(expectedStatus, cr.getClientResponseStatus());
+        Response response = znodesr.path(path)
+                .queryParam("view", "children")
+                .request(accept)
+                .get();
+
+        Assert.assertEquals(expectedStatus.getStatusCode(), response.getStatus());
 
         if (expectedChildren == null) {
             return;
         }
 
         if (accept.equals(MediaType.APPLICATION_JSON)) {
-            ZChildrenJSON zchildren = cr.getEntity(ZChildrenJSON.class);
+            ZChildrenJSON zchildren = response.readEntity(ZChildrenJSON.class);
             Collections.sort(expectedChildren);
             Collections.sort(zchildren.children);
             Assert.assertEquals(expectedChildren, zchildren.children);
@@ -124,7 +127,7 @@ public class GetChildrenTest extends Base {
             Assert.assertEquals(znodesr.path(path).toString() + "/{child}",
                     zchildren.child_uri_template);
         } else if (accept.equals(MediaType.APPLICATION_XML)) {
-            ZChildren zchildren = cr.getEntity(ZChildren.class);
+            ZChildren zchildren = response.readEntity(ZChildren.class);
             Collections.sort(expectedChildren);
             Collections.sort(zchildren.children);
             Assert.assertEquals(expectedChildren, zchildren.children);

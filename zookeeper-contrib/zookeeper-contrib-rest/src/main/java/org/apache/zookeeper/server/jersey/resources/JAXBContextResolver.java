@@ -22,50 +22,41 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.ws.rs.ext.ContextResolver;
-import javax.ws.rs.ext.Provider;
-import javax.xml.bind.JAXBContext;
+import jakarta.ws.rs.ext.ContextResolver;
+import jakarta.ws.rs.ext.Provider;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
 
 import org.apache.zookeeper.server.jersey.jaxb.ZChildrenJSON;
 import org.apache.zookeeper.server.jersey.jaxb.ZPath;
 import org.apache.zookeeper.server.jersey.jaxb.ZStat;
 
-import com.sun.jersey.api.json.JSONConfiguration;
-import com.sun.jersey.api.json.JSONJAXBContext;
 
 /**
  * Tell Jersey how to resolve JSON formatting. Specifically detail the
  * fields which are arrays and which are numbers (not strings).
  */
 @Provider
-@SuppressWarnings("unchecked")
 public final class JAXBContextResolver implements ContextResolver<JAXBContext> {
     private final JAXBContext context;
 
-    private final Set<Class> typesSet;
+    private final Set<Class<?>> typesSet = new HashSet<>(Arrays.asList(
+            ZPath.class, ZStat.class, ZChildrenJSON.class
+    ));
 
-    public JAXBContextResolver() throws Exception {
-        Class[] typesArr =
-            new Class[]{ZPath.class, ZStat.class, ZChildrenJSON.class};
-        typesSet = new HashSet<Class>(Arrays.asList(typesArr));
-        context = new JSONJAXBContext(
-                JSONConfiguration.mapped()
-                    .arrays("children")
-                    .nonStrings("czxid")
-                    .nonStrings("mzxid")
-                    .nonStrings("ctime")
-                    .nonStrings("mtime")
-                    .nonStrings("version")
-                    .nonStrings("cversion")
-                    .nonStrings("aversion")
-                    .nonStrings("ephemeralOwner")
-                    .nonStrings("dataLength")
-                    .nonStrings("numChildren")
-                    .nonStrings("pzxid")
-                    .build(),
-                typesArr);
+    public JAXBContextResolver() {
+        try {
+            this.context = JAXBContext.newInstance(
+                    ZPath.class,
+                    ZStat.class,
+                    ZChildrenJSON.class
+            );
+        } catch (JAXBException e) {
+            throw new RuntimeException("Failed to create JAXBContext", e);
+        }
     }
 
+    @Override
     public JAXBContext getContext(Class<?> objectType) {
         return (typesSet.contains(objectType)) ? context : null;
     }

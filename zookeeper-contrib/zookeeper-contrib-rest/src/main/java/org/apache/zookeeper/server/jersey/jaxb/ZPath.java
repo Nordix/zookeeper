@@ -18,7 +18,7 @@
 
 package org.apache.zookeeper.server.jersey.jaxb;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 
 /**

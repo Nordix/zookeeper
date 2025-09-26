@@ -21,8 +21,6 @@ package org.apache.zookeeper.server.jersey;
 import java.util.Arrays;
 import java.util.Collection;
 
-import javax.ws.rs.core.MediaType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.CreateMode;
@@ -36,7 +34,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import com.sun.jersey.api.client.ClientResponse;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 
 /**
@@ -48,7 +49,7 @@ public class DeleteTest extends Base {
     protected static final Logger LOG = LoggerFactory.getLogger(DeleteTest.class);
 
     private String zpath;
-    private ClientResponse.Status expectedStatus;
+    private Response.Status expectedStatus;
 
     public static class MyWatcher implements Watcher {
         public void process(WatchedEvent event) {
@@ -61,27 +62,29 @@ public class DeleteTest extends Base {
         String baseZnode = Base.createBaseZNode();
 
         return Arrays.asList(new Object[][] {
-          {baseZnode, baseZnode, ClientResponse.Status.NO_CONTENT },
-          {baseZnode, baseZnode, ClientResponse.Status.NO_CONTENT }
+          {baseZnode, baseZnode, Response.Status.NO_CONTENT },
+          {baseZnode, baseZnode, Response.Status.NO_CONTENT }
         });
     }
 
-    public DeleteTest(String path, String zpath, ClientResponse.Status status) {
+    public DeleteTest(String path, String zpath, Response.Status status) {
         this.zpath = zpath;
         this.expectedStatus = status;
     }
 
     public void verify(String type) throws Exception {
-        if (expectedStatus != ClientResponse.Status.NOT_FOUND) {
+        if (expectedStatus != Response.Status.NOT_FOUND) {
             zpath = zk.create(zpath, null, Ids.OPEN_ACL_UNSAFE,
                     CreateMode.PERSISTENT_SEQUENTIAL);
         }
 
-        ClientResponse cr = znodesr.path(zpath).accept(type).type(type)
-            .delete(ClientResponse.class);
-        Assert.assertEquals(expectedStatus, cr.getClientResponseStatus());
+            Response response = znodesr.path(zpath)
+                    .request(type)
+                    .accept(type)
+                    .delete();
+            Assert.assertEquals(expectedStatus.getStatusCode(), response.getStatus());
 
-        // use out-of-band method to verify
+            // use out-of-band method to verify
         Stat stat = zk.exists(zpath, false);
         Assert.assertNull(stat);
     }
