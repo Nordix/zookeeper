@@ -57,7 +57,7 @@ public class SessionsResource {
     }
 
     @PUT
-    @Produces({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+    @Produces({ MediaType.APPLICATION_JSON, "application/javascript", MediaType.APPLICATION_XML })
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public Response keepAliveSession(@PathParam("session") String session,
                                      @Context UriInfo ui,
@@ -72,7 +72,7 @@ public class SessionsResource {
     }
 
     @POST
-    @Produces({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+    @Produces({ MediaType.APPLICATION_JSON, "application/javascript", MediaType.APPLICATION_XML })
     public Response createSession(@QueryParam("op") String op,
                                   @DefaultValue("5") @QueryParam("expire") String expire,
                                   @Context UriInfo ui) {
@@ -96,6 +96,7 @@ public class SessionsResource {
             uuid = UUID.randomUUID().toString();
         }
 
+        // establish the connection to the ZooKeeper cluster
         try {
             ZooKeeperService.getClient(contextPath, uuid, expireInSeconds);
         } catch (IOException e) {
@@ -111,7 +112,7 @@ public class SessionsResource {
     }
 
     @DELETE
-    @Produces({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+    @Produces({ MediaType.APPLICATION_JSON, "application/javascript", MediaType.APPLICATION_XML })
     public void deleteSession(@PathParam("session") String session,
                               @Context UriInfo ui) {
         ZooKeeperService.close(contextPath, session);

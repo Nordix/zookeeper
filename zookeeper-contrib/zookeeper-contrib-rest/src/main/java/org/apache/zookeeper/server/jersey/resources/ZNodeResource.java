@@ -109,6 +109,14 @@ public class ZNodeResource {
         return Response.status(Response.Status.NO_CONTENT).build();
     }
 
+    /*
+     * getZNodeList and getZNodeListJSON are bogus - but necessary.
+     * Unfortunately Jersey 1.0.3 is unable to render both xml and json properly
+     * in the case where a object contains a list/array. It's impossible to get
+     * it to render properly for both. As a result we need to split into two
+     * jaxb classes.
+     */
+
     @GET
     @Produces( { MediaType.APPLICATION_JSON, "application/javascript" })
     public Response getZNodeListJSON(

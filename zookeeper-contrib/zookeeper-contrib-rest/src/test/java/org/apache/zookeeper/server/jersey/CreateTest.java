@@ -59,7 +59,7 @@ public class CreateTest extends Base {
 
     public static class MyWatcher implements Watcher {
         public void process(WatchedEvent event) {
-            // ignore for now
+            // FIXME ignore for now
         }
     }
 
@@ -142,7 +142,7 @@ public class CreateTest extends Base {
             Assert.assertEquals(znodesr.path(path).toString(), zpath.uri);
         }
 
-        // verify data
+        // use out-of-band method to verify
         byte[] actualData = zk.getData(zpath.path, false, new Stat());
         if (actualData == null && this.data == null) {
             return;

@@ -22,10 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URI;
-import org.glassfish.jersey.server.ResourceConfig;
-import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
-
+import java.nio.file.Files;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,37 +31,66 @@ import org.apache.zookeeper.server.jersey.cfg.Endpoint;
 import org.apache.zookeeper.server.jersey.cfg.RestCfg;
 import org.apache.zookeeper.server.jersey.filters.HTTPBasicAuth;
 
+import java.net.URI;
+import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.grizzly.http.server.NetworkListener;
-
+import org.glassfish.grizzly.ssl.SSLContextConfigurator;
+import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 /**
  * Demonstration of how to run the REST service using Grizzly
  */
 public class RestMain {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RestMain.class);
+    private static Logger LOG = LoggerFactory.getLogger(RestMain.class);
 
     private HttpServer server;
-    private final RestCfg cfg;
+    private RestCfg cfg;
 
     public RestMain(RestCfg cfg) {
         this.cfg = cfg;
     }
 
     public void start() throws IOException {
-        System.out.println("Starting Grizzly2 ...");
+        if (cfg.useSSL()) {
+            System.out.println("Starting Grizzly2 with SSL ...");
 
-        // base URI for the REST service
-        URI baseUri = URI.create("http://0.0.0.0:" + cfg.getPort() + "/");
+            SSLContextConfigurator sslConfig = new SSLContextConfigurator();
+            sslConfig.setKeyStoreFile(cfg.getJKS("keys/rest.jks"));
+            sslConfig.setKeyStorePass(cfg.getJKSPassword());
 
-        // Register your resource packages
-        ResourceConfig rc = new ResourceConfig()
-                .packages("org.apache.zookeeper.server.jersey.resources");
+            URI baseUri = URI.create("https://0.0.0.0:" + cfg.getPort() + "/");
 
-        // Register your auth filter if needed
-        rc.register(new HTTPBasicAuth(cfg.getCredentials()));
+            ResourceConfig rc = new ResourceConfig()
+                    .packages("org.apache.zookeeper.server.jersey.resources");
 
-        server = GrizzlyHttpServerFactory.createHttpServer(baseUri, rc);
+            rc.register(new HTTPBasicAuth(cfg.getCredentials()));
+
+            // NOTE: Old GrizzlyWebServer required a doc root when registering multiple adapters.
+            // With Grizzly2 and ResourceConfig, this limitation no longer applies.
+            SSLEngineConfigurator sslEngineConfigurator =
+                    new SSLEngineConfigurator(sslConfig.createSSLContext())
+                            .setClientMode(false)
+                            .setNeedClientAuth(false);
+
+            server = GrizzlyHttpServerFactory.createHttpServer(
+                    baseUri, rc, true, sslEngineConfigurator
+            );
+        } else {
+            System.out.println("Starting Grizzly2 ...");
+
+            URI baseUri = URI.create("http://0.0.0.0:" + cfg.getPort() + "/");
+
+            ResourceConfig rc = new ResourceConfig()
+                    .packages("org.apache.zookeeper.server.jersey.resources");
+
+            rc.register(new HTTPBasicAuth(cfg.getCredentials()));
+
+            // NOTE: Old GrizzlyWebServer required a doc root when registering multiple adapters.
+            // With Grizzly2 and ResourceConfig, this limitation no longer applies.
+            server = GrizzlyHttpServerFactory.createHttpServer(baseUri, rc);
+        }
+
         server.start();
     }
 
@@ -77,6 +103,7 @@ public class RestMain {
 
     /**
      * The entry point for starting the server
+     *
      */
     public static void main(String[] args) throws Exception {
         RestCfg cfg = new RestCfg("rest.properties");
@@ -84,10 +111,13 @@ public class RestMain {
         final RestMain main = new RestMain(cfg);
         main.start();
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            main.stop();
-            System.out.println("Got exit request. Bye.");
-        }));
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                main.stop();
+                System.out.println("Got exit request. Bye.");
+            }
+        });
 
         printEndpoints(cfg);
         System.out.println("Server started.");
@@ -97,14 +127,16 @@ public class RestMain {
         int port = cfg.getPort();
 
         for (Endpoint e : cfg.getEndpoints()) {
+
             String context = e.getContext();
-            if (!context.endsWith("/")) {
+            if (context.charAt(context.length() - 1) != '/') {
                 context += "/";
             }
 
-            System.out.printf(
-                    "Started %s - WADL: http://localhost:%d%sapplication.wadl%n",
-                    context, port, context);
+            System.out.println(String.format(
+                    "Started %s - WADL: http://localhost:%d%sapplication.wadl",
+                    context, port, context));
         }
     }
+
 }

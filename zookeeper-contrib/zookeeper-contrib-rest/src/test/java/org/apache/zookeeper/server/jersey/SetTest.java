@@ -124,6 +124,10 @@ public class SetTest extends Base {
         if (data == null) {
             response = builder.put(null);
         } else {
+            // this shouldn't be necessary (wrapping data with string)
+            // but without it there are problems on the server - ie it
+            // hangs for 30 seconds and doesn't get the data.
+            // TODO investigate
             response = builder.put(Entity.entity(new String(data), MediaType.APPLICATION_OCTET_STREAM));
         }
 
