@@ -20,22 +20,20 @@ package org.apache.zookeeper.server.jersey;
 
 import java.io.IOException;
 
-import javax.ws.rs.core.MediaType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.jersey.jaxb.ZSession;
-import org.codehaus.jettison.json.JSONException;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.WebResource.Builder;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 public class SessionTest extends Base {
     protected static final Logger LOG = LoggerFactory.getLogger(SessionTest.class);
@@ -45,19 +43,19 @@ public class SessionTest extends Base {
     }
 
     private ZSession createSession(String expire) {
-        WebResource wr = sessionsr.queryParam("op", "create")
-            .queryParam("expire", expire);
-        Builder b = wr.accept(MediaType.APPLICATION_JSON);
+        WebTarget target = sessionsr.queryParam("op", "create")
+                .queryParam("expire", expire);
 
-        ClientResponse cr = b.post(ClientResponse.class, null);
-        Assert.assertEquals(ClientResponse.Status.CREATED, cr
-                .getClientResponseStatus());
+        Invocation.Builder b = target.request(MediaType.APPLICATION_JSON);
 
-        return cr.getEntity(ZSession.class);
+        Response response = b.post(null);
+        Assert.assertEquals(Response.Status.CREATED.getStatusCode(), response.getStatus());
+
+        return response.readEntity(ZSession.class);
     }
 
     @Test
-    public void testCreateNewSession() throws JSONException {
+    public void testCreateNewSession() {
         ZSession session = createSession();
         Assert.assertEquals(session.id.length(), 36);
 
@@ -81,54 +79,53 @@ public class SessionTest extends Base {
     public void testDeleteSession() {
         ZSession session = createSession("30");
 
-        WebResource wr = sessionsr.path(session.id);
-        Builder b = wr.accept(MediaType.APPLICATION_JSON);
+        WebTarget target = sessionsr.path(session.id);
+        Invocation.Builder b = target.request(MediaType.APPLICATION_JSON);
 
         Assert.assertTrue(ZooKeeperService.isConnected(CONTEXT_PATH, session.id));
-        ClientResponse cr = b.delete(ClientResponse.class, null);
-        Assert.assertEquals(ClientResponse.Status.NO_CONTENT,
-                cr.getClientResponseStatus());
+        Response response = b.delete();
+        Assert.assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
 
         Assert.assertFalse(ZooKeeperService.isConnected(CONTEXT_PATH, session.id));
     }
-    
+
     @Test
     public void testSendHeartbeat() throws InterruptedException {
         ZSession session = createSession("2");
-        
+
         Thread.sleep(1000);
-        WebResource wr = sessionsr.path(session.id);
-        Builder b = wr.accept(MediaType.APPLICATION_JSON);
-        
-        ClientResponse cr = b.put(ClientResponse.class, null);
-        Assert.assertEquals(ClientResponse.Status.OK, cr.getClientResponseStatus());
-        
+        WebTarget target = sessionsr.path(session.id);
+        Invocation.Builder b = target.request(MediaType.APPLICATION_JSON);
+
+        Response response = b.put(null);
+        Assert.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+
         Thread.sleep(1500);
         Assert.assertTrue(ZooKeeperService.isConnected(CONTEXT_PATH, session.id));
-        
+
         Thread.sleep(1000);
         Assert.assertFalse(ZooKeeperService.isConnected(CONTEXT_PATH, session.id));
     }
-    
+
     @Test
-    public void testCreateEphemeralZNode() 
-    throws KeeperException, InterruptedException, IOException {
+    public void testCreateEphemeralZNode()
+            throws KeeperException, InterruptedException, IOException {
         ZSession session = createSession("30");
-        
-        WebResource wr = znodesr.path("/")
-            .queryParam("op", "create")
-            .queryParam("name", "ephemeral-test")
-            .queryParam("ephemeral", "true")
-            .queryParam("session", session.id)
-            .queryParam("null", "true");
-        
-        Builder b = wr.accept(MediaType.APPLICATION_JSON);
-        ClientResponse cr = b.post(ClientResponse.class);
-        Assert.assertEquals(ClientResponse.Status.CREATED, cr.getClientResponseStatus());
-        
+
+        WebTarget target = znodesr.path("/")
+                .queryParam("op", "create")
+                .queryParam("name", "ephemeral-test")
+                .queryParam("ephemeral", "true")
+                .queryParam("session", session.id)
+                .queryParam("null", "true");
+
+        Invocation.Builder b = target.request(MediaType.APPLICATION_JSON);
+        Response response = b.post(null);
+        Assert.assertEquals(Response.Status.CREATED.getStatusCode(), response.getStatus());
+
         Stat stat = new Stat();
         zk.getData("/ephemeral-test", false, stat);
-        
+
         ZooKeeper sessionZK = ZooKeeperService.getClient(CONTEXT_PATH, session.id);
         Assert.assertEquals(stat.getEphemeralOwner(), sessionZK.getSessionId());
     }

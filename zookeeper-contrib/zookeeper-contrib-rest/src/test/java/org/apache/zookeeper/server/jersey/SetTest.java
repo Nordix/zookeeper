@@ -21,8 +21,6 @@ package org.apache.zookeeper.server.jersey;
 import java.util.Arrays;
 import java.util.Collection;
 
-import javax.ws.rs.core.MediaType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.CreateMode;
@@ -37,9 +35,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.WebResource.Builder;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 
 /**
@@ -53,7 +53,7 @@ public class SetTest extends Base {
     private String accept;
     private String path;
     private String encoding;
-    private ClientResponse.Status expectedStatus;
+    private Response.Status expectedStatus;
     private ZStat expectedStat;
     private byte[] data;
 
@@ -69,33 +69,33 @@ public class SetTest extends Base {
 
         return Arrays.asList(new Object[][] {
           {MediaType.APPLICATION_JSON, baseZnode + "/s-t1", "utf8",
-              ClientResponse.Status.OK,
+              Response.Status.OK,
               new ZStat(baseZnode + "/s-t1", null, null), null },
           {MediaType.APPLICATION_JSON, baseZnode + "/s-t2", "utf8",
-              ClientResponse.Status.OK,
+              Response.Status.OK,
               new ZStat(baseZnode + "/s-t2", null, null), new byte[0] },
           {MediaType.APPLICATION_JSON, baseZnode + "/s-t3", "utf8",
-              ClientResponse.Status.OK,
+              Response.Status.OK,
               new ZStat(baseZnode + "/s-t3", null, null), "foobar".getBytes() },
           {MediaType.APPLICATION_JSON, baseZnode + "/s-t4", "base64",
-              ClientResponse.Status.OK,
+              Response.Status.OK,
               new ZStat(baseZnode + "/s-t4", null, null), null },
           {MediaType.APPLICATION_JSON, baseZnode + "/s-t5", "base64",
-              ClientResponse.Status.OK,
+              Response.Status.OK,
               new ZStat(baseZnode + "/s-t5", null, null), new byte[0] },
           {MediaType.APPLICATION_JSON, baseZnode + "/s-t6", "base64",
-              ClientResponse.Status.OK,
+              Response.Status.OK,
               new ZStat(baseZnode + "/s-t6", null, null),
               "foobar".getBytes() },
           {MediaType.APPLICATION_JSON, baseZnode + "/dkdkdkd", "utf8",
-              ClientResponse.Status.NOT_FOUND, null, null },
+              Response.Status.NOT_FOUND, null, null },
           {MediaType.APPLICATION_JSON, baseZnode + "/dkdkdkd", "base64",
-              ClientResponse.Status.NOT_FOUND, null, null },
+              Response.Status.NOT_FOUND, null, null },
           });
     }
 
     public SetTest(String accept, String path, String encoding,
-            ClientResponse.Status status, ZStat expectedStat, byte[] data)
+            Response.Status status, ZStat expectedStat, byte[] data)
     {
         this.accept = accept;
         this.path = path;
@@ -112,43 +112,44 @@ public class SetTest extends Base {
                     CreateMode.PERSISTENT);
         }
 
-        WebResource wr = znodesr.path(path).queryParam("dataformat", encoding);
+        WebTarget target = znodesr.path(path).queryParam("dataformat", encoding);
         if (data == null) {
-            wr = wr.queryParam("null", "true");
+            target = target.queryParam("null", "true");
         }
 
-        Builder builder = wr.accept(accept)
-            .type(MediaType.APPLICATION_OCTET_STREAM);
+        Invocation.Builder builder = target.request(accept)
+                .header("Content-Type", MediaType.APPLICATION_OCTET_STREAM);
 
-        ClientResponse cr;
+        Response response;
         if (data == null) {
-            cr = builder.put(ClientResponse.class);
+            response = builder.put(null);
         } else {
             // this shouldn't be necessary (wrapping data with string)
             // but without it there are problems on the server - ie it
             // hangs for 30 seconds and doesn't get the data.
             // TODO investigate
-            cr = builder.put(ClientResponse.class, new String(data));
+            response = builder.put(Entity.entity(new String(data), MediaType.APPLICATION_OCTET_STREAM));
         }
-        Assert.assertEquals(expectedStatus, cr.getClientResponseStatus());
+
+        Assert.assertEquals(expectedStatus.getStatusCode(), response.getStatus());
 
         if (expectedStat == null) {
             return;
         }
 
-        ZStat zstat = cr.getEntity(ZStat.class);
+        ZStat zstat = response.readEntity(ZStat.class);
         Assert.assertEquals(expectedStat, zstat);
 
         // use out-of-band method to verify
-        byte[] data = zk.getData(zstat.path, false, new Stat());
-        if (data == null && this.data == null) {
+        byte[] actualData = zk.getData(zstat.path, false, new Stat());
+        if (actualData == null && this.data == null) {
             return;
-        } else if (data == null || this.data == null) {
-            Assert.fail((data == null ? null : new String(data)) + " == "
+        } else if (actualData == null || this.data == null) {
+            Assert.fail((actualData == null ? null : new String(actualData)) + " == "
                     + (this.data == null ? null : new String(this.data)));
         } else {
-            Assert.assertTrue(new String(data) + " == " + new String(this.data),
-                    Arrays.equals(data, this.data));
+            Assert.assertTrue(new String(actualData) + " == " + new String(this.data),
+                    Arrays.equals(actualData, this.data));
         }
     }
 }

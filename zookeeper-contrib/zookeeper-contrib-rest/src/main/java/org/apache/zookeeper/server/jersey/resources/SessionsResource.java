@@ -22,21 +22,21 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.UUID;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,47 +44,43 @@ import org.apache.zookeeper.server.jersey.ZooKeeperService;
 import org.apache.zookeeper.server.jersey.jaxb.ZError;
 import org.apache.zookeeper.server.jersey.jaxb.ZSession;
 
-import com.sun.jersey.api.json.JSONWithPadding;
-
 @Path("sessions/v1/{session: .*}")
 public class SessionsResource {
 
-    private static Logger LOG = LoggerFactory.getLogger(SessionsResource.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SessionsResource.class);
 
-    private String contextPath;
+    private final String contextPath;
 
     public SessionsResource(@Context HttpServletRequest request) {
-        contextPath = request.getContextPath();
-        if (contextPath.equals("")) {
-            contextPath = "/";
-        }
+        String cp = request.getContextPath();
+        this.contextPath = (cp == null || cp.isEmpty()) ? "/" : cp;
     }
 
     @PUT
-    @Produces( { MediaType.APPLICATION_JSON, "application/javascript",
-            MediaType.APPLICATION_XML })
+    @Produces({ MediaType.APPLICATION_JSON, "application/javascript", MediaType.APPLICATION_XML })
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public Response keepAliveSession(@PathParam("session") String session,
-            @Context UriInfo ui, byte[] data) {
+                                     @Context UriInfo ui,
+                                     byte[] data) {
 
         if (!ZooKeeperService.isConnected(contextPath, session)) {
             throwNotFound(session, ui);
         }
 
         ZooKeeperService.resetTimer(contextPath, session);
-        return Response.status(Response.Status.OK).build();
+        return Response.ok().build();
     }
 
     @POST
-    @Produces( { MediaType.APPLICATION_JSON, "application/javascript",
-            MediaType.APPLICATION_XML })
+    @Produces({ MediaType.APPLICATION_JSON, "application/javascript", MediaType.APPLICATION_XML })
     public Response createSession(@QueryParam("op") String op,
-            @DefaultValue("5") @QueryParam("expire") String expire,
-            @Context UriInfo ui) {
-        if (!op.equals("create")) {
-            throw new WebApplicationException(Response.status(
-                    Response.Status.BAD_REQUEST).entity(
-                    new ZError(ui.getRequestUri().toString(), "")).build());
+                                  @DefaultValue("5") @QueryParam("expire") String expire,
+                                  @Context UriInfo ui) {
+        if (!"create".equals(op)) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                            .entity(new ZError(ui.getRequestUri().toString(), "Invalid op"))
+                            .build());
         }
 
         int expireInSeconds;
@@ -105,22 +101,20 @@ public class SessionsResource {
             ZooKeeperService.getClient(contextPath, uuid, expireInSeconds);
         } catch (IOException e) {
             LOG.error("Failed while trying to create a new session", e);
-
             throw new WebApplicationException(Response.status(
                     Response.Status.INTERNAL_SERVER_ERROR).build());
         }
 
         URI uri = ui.getAbsolutePathBuilder().path(uuid).build();
-        return Response.created(uri).entity(
-                new JSONWithPadding(new ZSession(uuid, uri.toString())))
+        return Response.created(uri)
+                .entity(new ZSession(uuid, uri.toString()))
                 .build();
     }
 
     @DELETE
-    @Produces( { MediaType.APPLICATION_JSON, "application/javascript",
-            MediaType.APPLICATION_XML, MediaType.APPLICATION_OCTET_STREAM })
+    @Produces({ MediaType.APPLICATION_JSON, "application/javascript", MediaType.APPLICATION_XML })
     public void deleteSession(@PathParam("session") String session,
-            @Context UriInfo ui) {
+                              @Context UriInfo ui) {
         ZooKeeperService.close(contextPath, session);
     }
 
@@ -128,8 +122,7 @@ public class SessionsResource {
             throws WebApplicationException {
         throw new WebApplicationException(Response.status(
                 Response.Status.NOT_FOUND).entity(
-                new ZError(ui.getRequestUri().toString(), session
-                        + " not found")).build());
+                new ZError(ui.getRequestUri().toString(),
+                        session + " not found")).build());
     }
-
 }

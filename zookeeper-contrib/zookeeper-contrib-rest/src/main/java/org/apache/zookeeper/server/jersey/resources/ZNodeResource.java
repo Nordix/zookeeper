@@ -23,23 +23,23 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.HEAD;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HEAD;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -53,8 +53,6 @@ import org.apache.zookeeper.server.jersey.jaxb.ZError;
 import org.apache.zookeeper.server.jersey.jaxb.ZPath;
 import org.apache.zookeeper.server.jersey.jaxb.ZStat;
 
-import com.sun.jersey.api.json.JSONWithPadding;
-
 /**
  * Version 1 implementation of the ZooKeeper REST specification.
  */
@@ -64,9 +62,9 @@ public class ZNodeResource {
     private final ZooKeeper zk;
 
     public ZNodeResource(@DefaultValue("") @QueryParam("session") String session,
-            @Context UriInfo ui,
-            @Context HttpServletRequest request
-            )
+                         @Context UriInfo ui,
+                         @Context HttpServletRequest request
+    )
             throws IOException {
 
         String contextPath = request.getContextPath();
@@ -92,7 +90,7 @@ public class ZNodeResource {
     @Produces( { MediaType.APPLICATION_JSON, "application/javascript",
             MediaType.APPLICATION_XML })
     public Response existsZNode(@PathParam("path") String path,
-            @Context UriInfo ui) throws InterruptedException, KeeperException {
+                                @Context UriInfo ui) throws InterruptedException, KeeperException {
         Stat stat = zk.exists(path, false);
         if (stat == null) {
             throwNotFound(path, ui);
@@ -103,7 +101,7 @@ public class ZNodeResource {
     @HEAD
     @Produces( { MediaType.APPLICATION_OCTET_STREAM })
     public Response existsZNodeAsOctet(@PathParam("path") String path,
-            @Context UriInfo ui) throws InterruptedException, KeeperException {
+                                       @Context UriInfo ui) throws InterruptedException, KeeperException {
         Stat stat = zk.exists(path, false);
         if (stat == null) {
             throwNotFound(path, ui);
@@ -123,26 +121,24 @@ public class ZNodeResource {
     @Produces( { MediaType.APPLICATION_JSON, "application/javascript" })
     public Response getZNodeListJSON(
             @PathParam("path") String path,
-            @QueryParam("callback") String callback,
             @DefaultValue("data") @QueryParam("view") String view,
             @DefaultValue("base64") @QueryParam("dataformat") String dataformat,
             @Context UriInfo ui) throws InterruptedException, KeeperException {
-        return getZNodeList(true, path, callback, view, dataformat, ui);
+        return getZNodeList(true, path, view, dataformat, ui);
     }
 
     @GET
     @Produces(MediaType.APPLICATION_XML)
     public Response getZNodeList(
             @PathParam("path") String path,
-            @QueryParam("callback") String callback,
             @DefaultValue("data") @QueryParam("view") String view,
             @DefaultValue("base64") @QueryParam("dataformat") String dataformat,
             @Context UriInfo ui) throws InterruptedException, KeeperException {
-        return getZNodeList(false, path, callback, view, dataformat, ui);
+        return getZNodeList(false, path, view, dataformat, ui);
     }
 
-    private Response getZNodeList(boolean json, String path, String callback,
-            String view, String dataformat, UriInfo ui)
+    private Response getZNodeList(boolean json, String path,
+                                  String view, String dataformat, UriInfo ui)
             throws InterruptedException, KeeperException {
         ensurePathNotNull(path);
 
@@ -166,8 +162,7 @@ public class ZNodeResource {
                 child = new ZChildren(path, ui.getAbsolutePath().toString(),
                         childTemplate, children);
             }
-            return Response.status(Response.Status.OK).entity(
-                    new JSONWithPadding(child, callback)).build();
+            return Response.ok(child).build();
         } else {
             Stat stat = new Stat();
             byte[] data = zk.getData(path, false, stat);
@@ -186,13 +181,12 @@ public class ZNodeResource {
             }
             ZStat zstat = new ZStat(path, ui.getAbsolutePath().toString(),
                     data64, dataUtf8, stat.getCzxid(), stat.getMzxid(), stat
-                            .getCtime(), stat.getMtime(), stat.getVersion(),
+                    .getCtime(), stat.getMtime(), stat.getVersion(),
                     stat.getCversion(), stat.getAversion(), stat
-                            .getEphemeralOwner(), stat.getDataLength(), stat
-                            .getNumChildren(), stat.getPzxid());
+                    .getEphemeralOwner(), stat.getDataLength(), stat
+                    .getNumChildren(), stat.getPzxid());
 
-            return Response.status(Response.Status.OK).entity(
-                    new JSONWithPadding(zstat, callback)).build();
+            return Response.ok(zstat).build();
         }
     }
 
@@ -218,7 +212,6 @@ public class ZNodeResource {
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public Response setZNode(
             @PathParam("path") String path,
-            @QueryParam("callback") String callback,
             @DefaultValue("-1") @QueryParam("version") String versionParam,
             @DefaultValue("base64") @QueryParam("dataformat") String dataformat,
             @DefaultValue("false") @QueryParam("null") String setNull,
@@ -244,22 +237,21 @@ public class ZNodeResource {
 
         ZStat zstat = new ZStat(path, ui.getAbsolutePath().toString(), null,
                 null, stat.getCzxid(), stat.getMzxid(), stat.getCtime(), stat
-                        .getMtime(), stat.getVersion(), stat.getCversion(),
+                .getMtime(), stat.getVersion(), stat.getCversion(),
                 stat.getAversion(), stat.getEphemeralOwner(), stat
-                        .getDataLength(), stat.getNumChildren(), stat
-                        .getPzxid());
+                .getDataLength(), stat.getNumChildren(), stat
+                .getPzxid());
 
-        return Response.status(Response.Status.OK).entity(
-                new JSONWithPadding(zstat, callback)).build();
+        return Response.ok(zstat).build();
     }
 
     @PUT
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public void setZNodeAsOctet(@PathParam("path") String path,
-            @DefaultValue("-1") @QueryParam("version") String versionParam,
-            @DefaultValue("false") @QueryParam("null") String setNull,
-            @Context UriInfo ui, byte[] data) throws InterruptedException,
+                                @DefaultValue("-1") @QueryParam("version") String versionParam,
+                                @DefaultValue("false") @QueryParam("null") String setNull,
+                                @Context UriInfo ui, byte[] data) throws InterruptedException,
             KeeperException {
         ensurePathNotNull(path);
 
@@ -286,7 +278,6 @@ public class ZNodeResource {
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public Response createZNode(
             @PathParam("path") String path,
-            @QueryParam("callback") String callback,
             @DefaultValue("create") @QueryParam("op") String op,
             @QueryParam("name") String name,
             @DefaultValue("base64") @QueryParam("dataformat") String dataformat,
@@ -332,19 +323,18 @@ public class ZNodeResource {
         URI uri = ui.getAbsolutePathBuilder().path(newPath).build();
 
         return Response.created(uri).entity(
-                new JSONWithPadding(new ZPath(newPath, ui.getAbsolutePath()
-                        .toString()))).build();
+                new ZPath(newPath, ui.getAbsolutePath().toString())).build();
     }
 
     @POST
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public Response createZNodeAsOctet(@PathParam("path") String path,
-            @DefaultValue("create") @QueryParam("op") String op,
-            @QueryParam("name") String name,
-            @DefaultValue("false") @QueryParam("null") String setNull,
-            @DefaultValue("false") @QueryParam("sequence") String sequence,
-            @Context UriInfo ui, byte[] data) throws InterruptedException,
+                                       @DefaultValue("create") @QueryParam("op") String op,
+                                       @QueryParam("name") String name,
+                                       @DefaultValue("false") @QueryParam("null") String setNull,
+                                       @DefaultValue("false") @QueryParam("sequence") String sequence,
+                                       @Context UriInfo ui, byte[] data) throws InterruptedException,
             KeeperException {
         ensurePathNotNull(path);
 
@@ -384,8 +374,8 @@ public class ZNodeResource {
     @Produces( { MediaType.APPLICATION_JSON, "application/javascript",
             MediaType.APPLICATION_XML, MediaType.APPLICATION_OCTET_STREAM })
     public void deleteZNode(@PathParam("path") String path,
-            @DefaultValue("-1") @QueryParam("version") String versionParam,
-            @Context UriInfo ui) throws InterruptedException, KeeperException {
+                            @DefaultValue("-1") @QueryParam("version") String versionParam,
+                            @Context UriInfo ui) throws InterruptedException, KeeperException {
         ensurePathNotNull(path);
 
         int version;
@@ -404,8 +394,8 @@ public class ZNodeResource {
     private static void throwNotFound(String path, UriInfo ui)
             throws WebApplicationException {
         throw new WebApplicationException(Response.status(
-                Response.Status.NOT_FOUND).entity(
-                new ZError(ui.getRequestUri().toString(), path + " not found"))
+                        Response.Status.NOT_FOUND).entity(
+                        new ZError(ui.getRequestUri().toString(), path + " not found"))
                 .build());
     }
 

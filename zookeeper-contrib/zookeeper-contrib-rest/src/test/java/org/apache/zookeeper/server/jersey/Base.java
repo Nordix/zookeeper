@@ -32,8 +32,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.WebResource;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.WebTarget;
 
 /**
  * Test stand-alone server.
@@ -49,7 +50,7 @@ public class Base {
            "http://localhost:%d%s", GRIZZLY_PORT, CONTEXT_PATH);
    protected static final String ZKHOSTPORT = "localhost:22182";
    protected Client client;
-   protected WebResource znodesr, sessionsr;
+   protected WebTarget znodesr, sessionsr;
 
    protected ZooKeeper zk;
 
@@ -67,14 +68,14 @@ public class Base {
 
        zk = new ZooKeeper(ZKHOSTPORT, 30000, new MyWatcher());
 
-       client = Client.create();
-       znodesr = client.resource(BASEURI).path("znodes/v1");
-       sessionsr = client.resource(BASEURI).path("sessions/v1/");
+       client = ClientBuilder.newClient();
+       znodesr = client.target(BASEURI).path("znodes/v1");
+       sessionsr = client.target(BASEURI).path("sessions/v1/");
    }
 
    @After
    public void tearDown() throws Exception {
-       client.destroy();
+       client.close();
        zk.close();
        rest.stop();
    }

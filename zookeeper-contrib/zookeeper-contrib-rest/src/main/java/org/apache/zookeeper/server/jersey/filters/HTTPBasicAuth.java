@@ -20,18 +20,19 @@ package org.apache.zookeeper.server.jersey.filters;
 
 import java.io.IOException;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
+
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.zookeeper.server.jersey.cfg.Credentials;
-
-import com.sun.jersey.core.util.Base64;
 
 public class HTTPBasicAuth implements Filter {
 
@@ -59,13 +60,15 @@ public class HTTPBasicAuth implements Filter {
         }
 
         response.setHeader("WWW-Authenticate", "Basic realm=\"Restricted\"");
-        response.sendError(401);
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
     }
 
     private String[] parseAuthorization(String authorization) {
         String parts[] = authorization.split(" ");
         if (parts.length == 2 && parts[0].equalsIgnoreCase("Basic")) {
-            String userPass = Base64.base64Decode(parts[1]);
+            byte[] decodedBytes = Base64.getDecoder().decode(parts[1]);
+            String userPass = new String(decodedBytes, StandardCharsets.UTF_8);
+
 
             int p = userPass.indexOf(":");
             if (p != -1) {

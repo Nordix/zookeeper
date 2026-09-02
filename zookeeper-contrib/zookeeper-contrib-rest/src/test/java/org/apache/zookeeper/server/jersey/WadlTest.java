@@ -23,8 +23,9 @@ import org.slf4j.LoggerFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.core.header.MediaTypes;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.MediaType;
 
 
 /**
@@ -36,9 +37,11 @@ public class WadlTest extends Base {
 
     @Test
     public void testApplicationWadl() {
-        WebResource r = client.resource(BASEURI);
-        String serviceWadl = r.path("application.wadl").
-                accept(MediaTypes.WADL).get(String.class);
+        WebTarget target = client.target(BASEURI).path("application.wadl");
+
+        Response response = target.request(MediaType.APPLICATION_XML).get();
+        String serviceWadl = response.readEntity(String.class);
+
         Assert.assertTrue("Something wrong. Returned wadl length not > 0.",
                 serviceWadl.length() > 0);
     }

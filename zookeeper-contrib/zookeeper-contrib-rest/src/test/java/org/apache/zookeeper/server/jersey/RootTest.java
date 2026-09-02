@@ -20,8 +20,6 @@ package org.apache.zookeeper.server.jersey;
 
 import java.util.Arrays;
 
-import javax.ws.rs.core.MediaType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.data.Stat;
@@ -29,9 +27,11 @@ import org.apache.zookeeper.server.jersey.jaxb.ZPath;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.WebResource.Builder;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 /**
  * Test stand-alone server.
@@ -46,15 +46,16 @@ public class RootTest extends Base {
         String name = "roottest-create";
         byte[] data = "foo".getBytes();
 
-        WebResource wr = znodesr.path(path).queryParam("dataformat", "utf8")
-            .queryParam("name", name);
-        Builder builder = wr.accept(MediaType.APPLICATION_JSON);
+        WebTarget target = znodesr.path(path)
+                .queryParam("dataformat", "utf8")
+                .queryParam("name", name);
 
-        ClientResponse cr;
-        cr = builder.post(ClientResponse.class, data);
-        Assert.assertEquals(ClientResponse.Status.CREATED, cr.getClientResponseStatus());
+        Invocation.Builder builder = target.request(MediaType.APPLICATION_JSON);
 
-        ZPath zpath = cr.getEntity(ZPath.class);
+        Response response = builder.post(Entity.entity(data, MediaType.APPLICATION_OCTET_STREAM));
+        Assert.assertEquals(Response.Status.CREATED.getStatusCode(), response.getStatus());
+
+        ZPath zpath = response.readEntity(ZPath.class);
         Assert.assertEquals(new ZPath(path + name), zpath);
         Assert.assertEquals(znodesr.path(path).toString(), zpath.uri);
 
